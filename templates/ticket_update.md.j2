@@ -1,0 +1,35 @@
+{#- ticket_update.md.j2 - Azure DevOps Ticket Update Template -#}
+{%- set resource_name = report.resource_name or (report.azure_resources[0].name if report.azure_resources else "unknown") -%}
+{%- set service_title = report.service | replace("_", " ") | title -%}
+{%- set has_tf = report.comparison_results | selectattr("status.value", "equalto", "terraform_managed") | list | length > 0 -%}
+{%- set has_pe = report.azure_resources | map(attribute="private_endpoints") | map("length") | sum > 0 -%}
+{%- set has_diag = report.azure_resources | map(attribute="diagnostic_settings") | map("length") | sum > 0 -%}
+Completed initial review for {{ service_title }}.
+
+Validated the following:
+- Azure resource(s) discovered: {{ report.azure_resources | length }} resource(s) found
+  {% for res in report.azure_resources %}- {{ res.name }} ({{ res.resource_type }}, {{ res.location }}, SKU: {{ res.sku_name or "N/A" }})
+  {% endfor %}
+- Private endpoint configuration: {{ "Configured" if has_pe else "Not configured / not found" }}
+  {% for res in report.azure_resources %}{% for pe in res.private_endpoints %}  - {{ pe.name }} | State: {{ pe.connection_state }} | VNet: {{ pe.vnet_name }} | Subnet: {{ pe.subnet_name }} | IP: {{ pe.private_ip_address or "Not set" }}
+  {% endfor %}{% endfor %}
+- Network configuration reviewed
+- Terraform module availability checked
+- Diagnostic settings: {{ "Present" if has_diag else "Not found" }}
+
+{% if has_tf -%}
+Terraform deployment definition was located in the repository. Confidence: {{ report.comparison_results[0].confidence | round(2) * 100 | int }}%.
+{%- else -%}
+Unable to confirm active Terraform deployment definition for {{ resource_name }} in the current repo search (repos searched: {{ report.repo_root }}).
+{%- endif %}
+
+No infrastructure changes were made.
+
+Key Findings:
+{% for finding in report.key_findings %}- {{ finding }}
+{% endfor %}
+Requesting confirmation on ownership/deployment path before proceeding.
+
+Overall Status: {{ report.summary_status.value }}
+Overall Risk: {{ report.overall_risk.value }}
+Run Timestamp: {{ report.run_timestamp }}
