@@ -1,0 +1,66 @@
+{#- terraform_ai_search_main.tf.j2 - AI Search main.tf stub template -#}
+{{ safety_warning }}
+# Auto-generated stub for: {{ resource.name }}
+# Resource Type: {{ resource.resource_type }}
+# Resource Group: {{ resource.resource_group }}
+# Location: {{ resource.location }}
+# Generated: {{ resource.subscription_id }}
+
+locals {
+  # TODO: Update these values from your environment configuration
+  resource_group_name = "{{ resource.resource_group }}"
+  location            = "{{ resource.location }}"
+}
+
+module "ai_search_service" {
+  source = "{{ module_source }}"
+
+  # --- Identity (confirmed from Azure) ---
+  name                = "{{ resource.name }}"
+  resource_group_name = local.resource_group_name
+  location            = local.location
+  sku                 = "{{ resource.sku_name or "TODO: sku name" }}"
+
+  # --- Network Configuration ---
+  # Public network access: {{ resource.public_network_access }}
+  public_network_access_enabled = {{ "false" if resource.public_network_access | lower == "disabled" else "# TODO: true or false" }}
+
+  # --- Private Endpoint Configuration ---
+  {% if first_pe -%}
+  # PE Name:    {{ first_pe.name }}
+  # VNet:       {{ first_pe.vnet_name }}
+  # Subnet:     {{ first_pe.subnet_name }}
+  # Private IP: {{ first_pe.private_ip_address or "TODO: private IP" }}
+  # NIC:        {{ first_pe.nic_name }}
+  {% for dns in first_pe.dns_configs -%}
+  # DNS FQDN:   {{ dns.fqdn }}
+  {% endfor -%}
+  {% else -%}
+  # TODO: No private endpoint detected. Configure if required.
+  {% endif %}
+
+  # --- Managed Identity ---
+  # Current identity type in Azure: {{ resource.identity.type if resource.identity else "None" }}
+  identity_type = "{{ resource.identity.type if resource.identity else "SystemAssigned" }}"
+
+  # --- Diagnostic Settings ---
+  # TODO: Confirm Log Analytics workspace ID
+  log_analytics_workspace_id = var.log_analytics_workspace_id
+
+  # --- Access Control ---
+  # TODO: Confirm admin and developer group object IDs
+  admin_group_object_id     = var.admin_group_object_id
+  developer_group_object_id = var.developer_group_object_id
+
+  # --- Tags (confirmed from Azure) ---
+  {% if resource.tags -%}
+  tags = {
+    {% for k, v in resource.tags.items() -%}
+    {{ k }} = "{{ v }}"
+    {% endfor %}
+  }
+  {%- else -%}
+  # TODO: Define tags
+  tags = var.tags
+  {%- endif %}
+}
