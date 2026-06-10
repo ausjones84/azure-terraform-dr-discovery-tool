@@ -1,0 +1,53 @@
+# sample_config.yaml
+# Azure Terraform DR Discovery Tool - Sample Configuration File
+# Copy this file and customize for your environment.
+# All CLI flags can be set here as defaults; CLI flags take precedence.
+
+# ============================================================
+# Azure Subscription
+# ============================================================
+subscription_id: "b6085d96-6bb5-4e70-890c-e026d0cb1d1a"  # TODO: Your subscription ID
+
+# ============================================================
+# Resource Filters (optional - leave empty to scan all)
+# ============================================================
+resource_name: ""          # e.g. edav-dev-aisearch-eastus-internal
+resource_group: ""         # e.g. ocio-edav-dev-high-search-rg
+
+# ============================================================
+# Terraform Repository Paths
+# ============================================================
+repo_roots:
+  - ./terraform-scripts    # Primary IaC scripts repository
+  # - ./terraform-scripts-2  # Additional repo if needed
+
+module_roots:
+  - ./terraform-modules    # Terraform modules repository
+
+# ============================================================
+# Output
+# ============================================================
+output_dir: ./reports
+
+# ============================================================
+# Templates (optional - defaults to templates/ in repo)
+# ============================================================
+templates_dir: null        # Leave null to use built-in templates
+
+# ============================================================
+# Stub Generation (only used with --generate-stub flag)
+# ============================================================
+env_path: "edav/dev"       # e.g. edav/dev, edav/prod, corp/staging
+
+# ============================================================
+# Logging
+# ============================================================
+verbose: false             # Set to true for debug-level output
+
+# ============================================================
+# SAFETY NOTES
+# ============================================================
+# - Default mode is READ-ONLY. No Azure or Terraform changes.
+# - terraform apply is NEVER run by this tool.
+# - --generate-stub only creates DRAFT files for review.
+# - Secrets and keys are never written to reports.
