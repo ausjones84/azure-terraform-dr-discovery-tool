@@ -1,0 +1,67 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Generated reports (sensitive - do not commit)
+reports/*.xlsx
+reports/*.md
+reports/*.json
+reports/*.csv
+
+# Generated Terraform stubs (review before committing)
+generated/**/*.tf
+generated/**/*.sh
+
+# Azure CLI cache
+.azure/
+
+# Pytest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets (NEVER commit these)
+*.pem
+*.key
+*.pfx
+*.p12
+.secrets
+secrets.yaml
+secrets.yml
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+.terraform.lock.hcl
+terraform.tfvars
+*.auto.tfvars
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
