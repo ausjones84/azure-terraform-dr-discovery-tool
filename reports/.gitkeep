@@ -1,0 +1,3 @@
+# Reports output directory
+# Generated report files (.xlsx, .md, .json) will be written here.
+# This directory is tracked by git but its contents are not.
