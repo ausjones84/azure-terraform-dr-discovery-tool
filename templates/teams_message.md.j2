@@ -1,0 +1,31 @@
+{#- teams_message.md.j2 - Microsoft Teams Message Template -#}
+{%- set resource_name = report.resource_name or (report.azure_resources[0].name if report.azure_resources else "unknown") -%}
+{%- set service_title = report.service | replace("_", " ") | title -%}
+{%- set has_tf = report.comparison_results | selectattr("status.value", "equalto", "terraform_managed") | list | length > 0 -%}
+Hi Chinna/Suresh,
+
+I completed the review for {{ service_title }}.
+
+I validated the existing Azure resource{% if report.azure_resources | length > 1 %}s{% endif %}:
+{% for res in report.azure_resources %}- {{ res.name }} ({{ res.location }}, SKU: {{ res.sku_name or "N/A" }})
+{% endfor %}
+I reviewed the Terraform module/pattern in:
+- Repos: {{ report.repo_root }}
+- Modules: {{ report.module_root }}
+
+{% if has_tf -%}
+I was able to locate a Terraform deployment definition for {{ resource_name }}.
+{%- else -%}
+I was not able to locate an active deployment definition in terraform-scripts for {{ resource_name }}.
+{%- endif %}
+
+Can you confirm:
+1. Whether this is managed through another repo, branch, or pipeline?
+2. Or if I should proceed with creating the Terraform deployment definition under the appropriate path?
+
+No infrastructure changes have been made. All findings are in the attached report.
+
+Overall Status: {{ report.summary_status.value }}
+Risk Level: {{ report.overall_risk.value }}
+
+Thanks
