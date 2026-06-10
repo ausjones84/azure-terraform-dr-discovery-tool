@@ -1,0 +1,56 @@
+{#- terraform_ai_search_variables.tf.j2 - AI Search variables.tf stub template -#}
+{{ safety_warning }}
+# Variables for: {{ resource.name }}
+
+{% if module_variables -%}
+# Variables discovered from module: {{ module_path }}
+{% for var_name, var_info in module_variables.items() -%}
+variable "{{ var_name }}" {
+  description = "{{ var_info.description or ("TODO: " + var_name) }}"
+  type        = {{ var_info.type or "string" }}
+  {% if var_info.default is not none -%}
+  default     = {{ var_info.default }}
+  {% endif %}
+}
+
+{% endfor %}
+{%- else -%}
+# Module variables not detected - using common defaults
+# TODO: Update based on your module's variables.tf
+
+variable "log_analytics_workspace_id" {
+  description = "TODO: Log Analytics workspace resource ID for diagnostic settings"
+  type        = string
+}
+
+variable "admin_group_object_id" {
+  description = "TODO: Azure AD group object ID for Search admin access"
+  type        = string
+}
+
+variable "developer_group_object_id" {
+  description = "TODO: Azure AD group object ID for Search developer/reader access"
+  type        = string
+}
+
+variable "private_ip_address" {
+  description = "TODO: Private IP address for the private endpoint - confirm with networking team"
+  type        = string
+  default     = null
+  # Detected from Azure: {{ first_pe.private_ip_address if first_pe else "Not found" }}
+}
+
+variable "tags" {
+  description = "Resource tags to apply"
+  type        = map(string)
+  default     = {
+    {% if resource.tags -%}
+    {% for k, v in resource.tags.items() -%}
+    {{ k }} = "{{ v }}"
+    {% endfor -%}
+    {%- else -%}
+    # TODO: Define required tags
+    {%- endif %}
+  }
+}
+{%- endif %}
