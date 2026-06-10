@@ -1,0 +1,27 @@
+# Azure Terraform DR Discovery Tool - Requirements
+# Install with: pip install -r requirements.txt
+
+# Azure SDK - Core
+azure-identity>=1.15.0
+azure-mgmt-resource>=23.0.0
+azure-mgmt-network>=25.0.0
+azure-mgmt-monitor>=6.0.0
+azure-mgmt-search>=9.0.0
+azure-mgmt-cognitiveservices>=13.0.0
+azure-mgmt-authorization>=4.0.0
+
+# Report generation
+openpyxl>=3.1.2
+jinja2>=3.1.2
+
+# Terminal UI
+rich>=13.6.0
+click>=8.1.7
+
+# YAML config support
+pyyaml>=6.0.1
+
+# Utilities
+python-dateutil>=2.8.2
+tabulate>=0.9.0
+colorama>=0.4.6
