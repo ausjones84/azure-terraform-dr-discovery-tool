@@ -303,3 +303,130 @@ MIT License. See [LICENSE](LICENSE) for details.
 ---
 
 > **This tool is for discovery and documentation only. It never modifies Azure resources or Terraform code unless explicitly requested via `--generate-stub`. All Terraform stubs are drafts requiring human review before use.**
+
+
+---
+
+## Terraform Onboarding Workflow
+
+Use this workflow when a resource is classified as `terraform_onboarding_candidate`:
+a resource that **exists in Azure**, has a **reusable Terraform module** available,
+but has **no deployment definition in terraform-scripts** and was **created outside Terraform**.
+
+```
+Azure Resource Exists
+       |
+       v
+Terraform Module Exists (in terraform-modules)
+       |
+       v
+Deployment Definition Missing (not in terraform-scripts)
+       |
+       v
+Generate Deployment Definition
+  terraform-scripts/<env>/<module>/main.tf
+  terraform-scripts/<env>/<module>/variables.tf
+  terraform-scripts/<env>/<module>/import_commands.sh
+       |
+       v
+Import Existing Resources
+  Run: bash import_commands.sh
+  (review commands BEFORE running)
+       |
+       v
+Terraform Plan
+  Run: terraform plan
+       |
+       v
+Validate Zero Drift
+  Plan: 0 to add, 0 to change, 0 to destroy
+  (STOP if plan shows any add/change/destroy until resolved)
+       |
+       v
+Submit PR
+       |
+       v
+Approval (required)
+       |
+       v
+Apply (only after approval)
+```
+
+### Resource Classifications
+
+| Status | Definition |
+|--------|-----------|
+| `terraform_managed` | Resource exists in Azure AND deployment definition found in terraform-scripts |
+| `azure_only` | Resource exists in Azure, no module and no deployment definition found |
+| `terraform_onboarding_candidate` | Resource exists in Azure + module exists + NO deployment definition + created outside Terraform |
+| `module_available_but_not_instantiated` | Module reference found in repo but no active deployment definition |
+| `tf_only` | Deployment definition found in Terraform but resource not found in Azure |
+
+### Ownership Validation Fields
+
+Every resource in the report now includes:
+
+| Field | Values |
+|-------|--------|
+| Ownership Status | Terraform Managed, Azure Only, Created Outside Terraform, Unknown |
+| Deployment Source | terraform-scripts, alternate repo, manual deployment, unknown |
+
+### Terraform Onboarding Risk Scoring
+
+| Risk Level | Criteria |
+|-----------|---------|
+| HIGH | Resource exists + created outside Terraform (all onboarding candidates start here) |
+| CRITICAL | PE + diagnostic settings + RBAC all present — import all sub-resources before apply |
+
+### Example: AI Search Onboarding
+
+```
+Resource: edav-dev-aisearch-eastus-internal
+
+Recommendation:
+  Create deployment definition under:
+  terraform-scripts/edav/dev/ai_search_service
+
+Required Actions:
+  1. Create module block in main.tf
+  2. Match Azure configuration exactly (SKU, location, tags, PE, diagnostics, RBAC)
+  3. Run: terraform init
+  4. Run import commands from import_commands.sh
+  5. Run: terraform plan
+  6. Validate: Plan: 0 to add, 0 to change, 0 to destroy
+  7. Submit PR for review
+  8. Apply ONLY after approval
+
+WARNING: Import resources before apply.
+         Plan must zero out before approval.
+```
+
+### Terraform Import Commands (Output Only)
+
+The tool generates example import commands for:
+- `azurerm_search_service`
+- `azurerm_private_endpoint`
+- `azurerm_monitor_diagnostic_setting`
+- `azurerm_role_assignment`
+
+**These commands are NEVER executed by the tool.** They are output to
+`import_commands.sh` for human review. Run them manually only after reviewing
+the deployment definition and running `terraform init`.
+
+### Excel Report: Terraform_Onboarding Sheet
+
+The Excel report now includes a **Terraform_Onboarding** sheet with these columns:
+
+| Column | Description |
+|--------|-------------|
+| Resource Name | Azure resource name |
+| Resource Type | Full Azure resource type |
+| Terraform Module | Module name in terraform-modules |
+| Deployment Path | Suggested path in terraform-scripts |
+| Ownership Status | Terraform Managed / Azure Only / Created Outside Terraform |
+| Deployment Source | terraform-scripts / alternate repo / manual deployment |
+| Import Required | Yes / No |
+| Risk Level | low / medium / high / critical |
+| Recommended Action | Step-by-step onboarding action |
+| Plan Validation Required | Yes / No |
+| Import Commands Preview | First 5 lines of import_commands.sh |
