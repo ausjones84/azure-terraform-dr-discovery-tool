@@ -55,8 +55,10 @@ if str(src_dir) not in sys.path:
     sys.path.insert(0, str(src_dir))
 
 from models import (
-    DiscoveryReport, ComparisonResult, ComparisonStatus, RiskLevel
+    DiscoveryReport, ComparisonResult, ComparisonStatus, RiskLevel,
+    OwnershipValidation, OwnershipStatus, DeploymentSource,
 )
+from onboarding_engine import enrich_all_results
 from azure_discovery import discover_resources
 from terraform_search import TerraformSearchEngine, check_module_availability
 from drift_parser import find_drift_files, parse_drift_file, match_drift_to_resource
@@ -153,6 +155,12 @@ def classify_resource(
             "Module exists but no deployment found. Create deployment definition "
             "referencing the existing module. Consider --generate-stub."
         ),
+        ComparisonStatus.TERRAFORM_ONBOARDING_CANDIDATE: (
+            "TERRAFORM ONBOARDING REQUIRED. Resource exists in Azure, module exists in repo, "
+            "but no deployment definition found. Resource was created outside Terraform. "
+            "Generate deployment definition, import existing resources, run plan, "
+            "validate Plan: 0 to add, 0 to change, 0 to destroy before any apply."
+        ),
         ComparisonStatus.POSSIBLE_MATCH: (
             "Possible Terraform match found. Review matched files to confirm."
         ),
@@ -191,6 +199,7 @@ def print_summary_table(report: DiscoveryReport):
         ComparisonStatus.AZURE_ONLY: "red",
         ComparisonStatus.POSSIBLE_MATCH: "yellow",
         ComparisonStatus.MODULE_AVAILABLE: "cyan",
+        ComparisonStatus.TERRAFORM_ONBOARDING_CANDIDATE: "bold magenta",
         ComparisonStatus.UNKNOWN: "dim",
     }.get(report.summary_status, "white")
     table.add_row(
@@ -232,6 +241,7 @@ def print_comparison_results(results: List[ComparisonResult]):
             ComparisonStatus.AZURE_ONLY: "red",
             ComparisonStatus.POSSIBLE_MATCH: "yellow",
             ComparisonStatus.MODULE_AVAILABLE: "cyan",
+            ComparisonStatus.TERRAFORM_ONBOARDING_CANDIDATE: "bold magenta",
         }.get(cr.status, "white")
         risk_color = {
             RiskLevel.LOW: "green",
