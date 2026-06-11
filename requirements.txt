@@ -1,7 +1,7 @@
 # Azure Terraform DR Discovery Tool - Requirements
 # Install with: pip install -r requirements.txt
 
-# Azure SDK - Core
+# Azure SDK - Core authentication
 azure-identity>=1.15.0
 azure-mgmt-resource>=23.0.0
 azure-mgmt-network>=25.0.0
