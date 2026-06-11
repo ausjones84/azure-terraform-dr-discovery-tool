@@ -28,7 +28,7 @@ except ImportError:
 
 from models import (
     DiscoveryReport, ComparisonStatus, RiskLevel,
-    AzureResource, ComparisonResult
+    AzureResource, ComparisonResult, OwnershipStatus, DeploymentSource,
 )
 
 logger = logging.getLogger(__name__)
@@ -51,7 +51,15 @@ STATUS_COLORS = {
     ComparisonStatus.TF_ONLY.value: "FFEB9C",
     ComparisonStatus.POSSIBLE_MATCH.value: "DDEEFF",
     ComparisonStatus.MODULE_AVAILABLE.value: "E2EFDA",
+    ComparisonStatus.TERRAFORM_ONBOARDING_CANDIDATE.value: "E8D5F5",  # light purple
     ComparisonStatus.UNKNOWN.value: "F2F2F2",
+}
+
+ONBOARDING_RISK_COLORS = {
+    "low": "C6EFCE",
+    "medium": "FFEB9C",
+    "high": "FFC7CE",
+    "critical": "FF6B6B",
 }
 
 
@@ -134,6 +142,9 @@ def write_excel_report(report: DiscoveryReport, output_path: str) -> str:
 
     ws_steps = wb.create_sheet("Recommended Next Steps")
     _write_next_steps_sheet(ws_steps, report)
+
+    ws_onboard = wb.create_sheet("Terraform_Onboarding")
+    _write_onboarding_sheet(ws_onboard, report)
 
     ws_ticket = wb.create_sheet("Ticket Update Draft")
     _write_ticket_sheet(ws_ticket, report)
@@ -328,6 +339,86 @@ def _write_next_steps_sheet(ws, report: DiscoveryReport):
     ws.column_dimensions["A"].width = 100
 
 
+def _write_onboarding_sheet(ws, report: DiscoveryReport):
+    """
+    Terraform_Onboarding sheet.
+    Columns: Resource Name, Resource Type, Terraform Module, Deployment Path,
+             Ownership Status, Import Required, Risk Level, Recommended Action,
+             Plan Validation Required.
+    """
+    headers = [
+        "Resource Name",
+        "Resource Type",
+        "Terraform Module",
+        "Deployment Path",
+        "Ownership Status",
+        "Deployment Source",
+        "Import Required",
+        "Risk Level",
+        "Recommended Action",
+        "Plan Validation Required",
+        "Import Commands Preview",
+    ]
+    _header_style(ws, 1, headers)
+
+    row_idx = 2
+    for cr in report.comparison_results:
+        name  = cr.azure_resource.name if cr.azure_resource else "N/A"
+        rtype = cr.azure_resource.resource_type if cr.azure_resource else "N/A"
+        own   = cr.ownership
+        rec   = cr.onboarding_recommendation
+
+        module_name  = rec.terraform_module  if rec else ""
+        deploy_path  = rec.deployment_path   if rec else (own.suggested_deployment_path if own else "")
+        own_status   = own.ownership_status.value  if own else OwnershipStatus.UNKNOWN.value
+        dep_source   = own.deployment_source.value if own else DeploymentSource.UNKNOWN.value
+        import_req   = "Yes" if (own and own.import_required) else "No"
+        plan_req     = "Yes" if (own and own.plan_validation_required) else "No"
+        risk_val     = cr.risk_level.value if cr.risk_level else "unknown"
+        action       = cr.recommended_action or ""
+        import_preview = "\n".join((rec.import_commands[:5] if rec else []))
+
+        ws.cell(row=row_idx, column=1, value=name)
+        ws.cell(row=row_idx, column=2, value=rtype)
+        ws.cell(row=row_idx, column=3, value=module_name)
+        ws.cell(row=row_idx, column=4, value=deploy_path)
+
+        own_cell = ws.cell(row=row_idx, column=5, value=own_status)
+        if own_status == OwnershipStatus.CREATED_OUTSIDE_TERRAFORM.value:
+            _color_cell(own_cell, "E8D5F5")
+        elif own_status == OwnershipStatus.TERRAFORM_MANAGED.value:
+            _color_cell(own_cell, "C6EFCE")
+
+        ws.cell(row=row_idx, column=6, value=dep_source)
+
+        imp_cell = ws.cell(row=row_idx, column=7, value=import_req)
+        if import_req == "Yes":
+            _color_cell(imp_cell, "FFC7CE")
+
+        risk_cell = ws.cell(row=row_idx, column=8, value=risk_val)
+        _color_cell(risk_cell, ONBOARDING_RISK_COLORS.get(risk_val, "F2F2F2"))
+
+        ws.cell(row=row_idx, column=9, value=action)
+
+        plan_cell = ws.cell(row=row_idx, column=10, value=plan_req)
+        if plan_req == "Yes":
+            _color_cell(plan_cell, "FFEB9C")
+
+        ws.cell(row=row_idx, column=11, value=import_preview)
+
+        row_idx += 1
+
+    # Add a summary note row for onboarding candidates
+    if report.onboarding_candidates:
+        ws.cell(row=row_idx + 1, column=1, value="Onboarding Candidates Found:").font = Font(bold=True)
+        ws.cell(row=row_idx + 1, column=2, value=len(report.onboarding_candidates))
+        ws.cell(row=row_idx + 2, column=1, value="Plan Validation Required:").font = Font(bold=True, color="FF0000")
+        ws.cell(row=row_idx + 2, column=2, value="Plan: 0 to add, 0 to change, 0 to destroy")
+
+    ws.freeze_panes = "A2"
+    _autofit_columns(ws)
+
+
 def _write_ticket_sheet(ws, report: DiscoveryReport):
     ws.cell(row=1, column=1, value="Ticket Update Draft").font = Font(bold=True, size=13)
     ws.cell(row=3, column=1, value=report.ticket_update_text)
@@ -397,6 +488,51 @@ def write_markdown_report(report: DiscoveryReport, output_path: str) -> str:
     for i, step in enumerate(report.next_steps, start=1):
         lines.append(f"{i}. {step}")
     lines.append("")
+    # Terraform Onboarding Recommendation section
+    if report.onboarding_candidates:
+        lines.append("## Terraform Onboarding Recommendations")
+        lines.append("")
+        lines.append("> These resources exist in Azure, have a reusable Terraform module available,")
+        lines.append("> but have no deployment definition in terraform-scripts.")
+        lines.append("> They were created outside Terraform and require onboarding.")
+        lines.append("")
+        for cr in report.onboarding_candidates:
+            rec = cr.onboarding_recommendation
+            own = cr.ownership
+            if not rec:
+                continue
+            lines.append(f"### {rec.resource_name}")
+            lines.append(f"- **Resource Type:** {rec.resource_type}")
+            lines.append(f"- **Terraform Module:** `{rec.terraform_module}`")
+            lines.append(f"- **Deployment Path:** `{rec.deployment_path}`")
+            lines.append(f"- **Ownership Status:** {own.ownership_status.value if own else 'Unknown'}")
+            lines.append(f"- **Deployment Source:** {own.deployment_source.value if own else 'unknown'}")
+            lines.append(f"- **Risk Level:** `{rec.risk_level.value}`")
+            lines.append(f"- **Import Required:** {'Yes' if (own and own.import_required) else 'No'}")
+            lines.append(f"- **Plan Validation Required:** Plan: 0 to add, 0 to change, 0 to destroy")
+            lines.append("")
+            if rec.risk_notes:
+                lines.append("#### Risk Notes")
+                for note in rec.risk_notes:
+                    lines.append(f"- {note}")
+                lines.append("")
+            if rec.warning_text:
+                lines.append(f"> **{rec.warning_text.split(chr(10))[0]}**")
+                lines.append("")
+            lines.append("#### Required Actions")
+            for i, action in enumerate(rec.required_actions, start=1):
+                lines.append(f"{i}. {action}")
+            lines.append("")
+            if rec.import_commands:
+                lines.append("#### Import Commands (review before executing)")
+                lines.append("```bash")
+                for cmd_line in rec.import_commands[:20]:
+                    lines.append(cmd_line)
+                lines.append("```")
+                lines.append("")
+        lines.append("---")
+        lines.append("")
+
     lines.append("## Ticket Update Draft")
     lines.append("")
     lines.append(report.ticket_update_text)
